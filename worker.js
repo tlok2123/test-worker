@@ -59,8 +59,8 @@ export default {
             const watermarkImage = new PhotonImage(new Uint8Array(watermarkBuffer));
 
             // Đảm bảo các tham số là số nguyên
-            const watermarkWidth = 576;
-            const watermarkHeight = 576;
+            const watermarkWidth = 512;
+            const watermarkHeight = 154;
             const x = Math.floor(mainImage.get_width() / 2 - watermarkWidth / 2);
             const y = Math.floor(mainImage.get_height() / 2 - watermarkHeight / 2);
 

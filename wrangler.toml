@@ -17,5 +17,7 @@ R2_ACCOUNT_ID = "ba1e0a4014ed4ccb84b2682ba234ad30"
 [observability.logs]
 enabled = true
 
+[wasm_modules]
+PHOTON = "./node_modules/@cf-wasm/photon/photon_rs_bg.wasm"
 
 
