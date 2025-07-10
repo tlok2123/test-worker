@@ -67,22 +67,23 @@ export default {
             const mainImage = new PhotonImage(new Uint8Array(imageBuffer));
             const watermarkImage = new PhotonImage(new Uint8Array(watermarkBuffer));
 
-            // Điều chỉnh kích thước watermark
-            const watermarkWidth = Math.min(576, Math.floor(mainImage.get_width() * 0.5));
-            const watermarkHeight = Math.min(576, Math.floor(mainImage.get_height() * 0.5));
-            const resizedWatermark = resize(watermarkImage, watermarkWidth, watermarkHeight, 1); // Nearest neighbor
-
             // Kiểm tra kích thước hình ảnh
-            if (mainImage.get_width() < watermarkWidth || mainImage.get_height() < watermarkHeight) {
+            const minImageSize = 100;
+            if (mainImage.get_width() < minImageSize || mainImage.get_height() < minImageSize) {
                 mainImage.free();
                 watermarkImage.free();
-                resizedWatermark.free();
-                throw new Error('Hình ảnh quá nhỏ để áp dụng watermark');
+                throw new Error(`Hình ảnh quá nhỏ (phải lớn hơn ${minImageSize}x${minImageSize}px)`);
             }
 
+            // Điều chỉnh kích thước watermark
+            const minWatermarkSize = 10;
+            const watermarkWidth = Math.max(minWatermarkSize, Math.min(576, Math.floor(mainImage.get_width() * 0.5)));
+            const watermarkHeight = Math.max(minWatermarkSize, Math.min(576, Math.floor(mainImage.get_height() * 0.5)));
+            const resizedWatermark = resize(watermarkImage, watermarkWidth, watermarkHeight, 1); // Nearest neighbor
+
             // Tính toán vị trí watermark
-            const x = Math.max(0, Math.floor(mainImage.get_width() / 2 - watermarkWidth / 2));
-            const y = Math.max(0, Math.floor(mainImage.get_height() / 2 - watermarkHeight / 2));
+            const x = Math.max(1, Math.floor(mainImage.get_width() / 2 - watermarkWidth / 2));
+            const y = Math.max(1, Math.floor(mainImage.get_height() / 2 - watermarkHeight / 2));
 
             // Áp dụng watermark
             watermark(mainImage, resizedWatermark, x, y, 0.1, watermarkWidth, watermarkHeight);
