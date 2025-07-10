@@ -1,4 +1,5 @@
 import { PhotonImage, watermark } from "@cf-wasm/photon";
+import photonWasm from "@cf-wasm/photon/photon.wasm";
 
 export default {
     async fetch(request, env) {
