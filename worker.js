@@ -1,4 +1,5 @@
-import { PhotonImage, watermark } from "@cf-wasm/photon";
+import { PhotonImage, watermark, resize } from "@cf-wasm/photon";
+import photonWasm from "@cf-wasm/photon/photon_rs_bg.wasm";
 
 export default {
     async fetch(request, env) {
@@ -18,10 +19,7 @@ export default {
         if (request.method !== 'POST') {
             return new Response(JSON.stringify({ error: 'Chỉ hỗ trợ phương thức POST' }), {
                 status: 405,
-                headers: {
-                    ...headers,
-                    Allow: 'POST',
-                },
+                headers: { ...headers, Allow: 'POST' },
             });
         }
 
@@ -30,15 +28,18 @@ export default {
             if (!env.test_togihome) {
                 throw new Error('Binding test_togihome không được định nghĩa trong env');
             }
-            console.log('R2 binding test_togihome:', env.test_togihome);
 
             // Lấy dữ liệu từ form-data
             const formData = await request.formData();
             const imageFile = formData.get('image');
             const type = formData.get('type');
 
+            // Kiểm tra tệp hình ảnh và loại
             if (!imageFile) {
                 throw new Error('Không tìm thấy tệp hình ảnh trong form-data');
+            }
+            if (!['image/png', 'image/jpeg'].includes(imageFile.type)) {
+                throw new Error('Định dạng hình ảnh không được hỗ trợ');
             }
             if (!type || type !== 'product') {
                 throw new Error('Trường type không hợp lệ hoặc không được cung cấp');
@@ -54,18 +55,29 @@ export default {
             const imageBuffer = await imageFile.arrayBuffer();
             const watermarkBuffer = await watermarkObject.arrayBuffer();
 
+            // Kiểm tra buffer hợp lệ
+            if (imageBuffer.byteLength === 0) {
+                throw new Error('Tệp hình ảnh rỗng hoặc không hợp lệ');
+            }
+            if (watermarkBuffer.byteLength === 0) {
+                throw new Error('Tệp watermark rỗng hoặc không hợp lệ');
+            }
+
             // Tạo PhotonImage từ buffer
             const mainImage = new PhotonImage(new Uint8Array(imageBuffer));
             const watermarkImage = new PhotonImage(new Uint8Array(watermarkBuffer));
 
-            // Đảm bảo các tham số là số nguyên
-            const watermarkWidth = 512;
-            const watermarkHeight = 154;
+            // Resize watermark
+            const watermarkWidth = 576;
+            const watermarkHeight = 576;
+            const resizedWatermark = resize(watermarkImage, watermarkWidth, watermarkHeight, 1); // Nearest neighbor
+
+            // Tính toán vị trí watermark
             const x = Math.floor(mainImage.get_width() / 2 - watermarkWidth / 2);
             const y = Math.floor(mainImage.get_height() / 2 - watermarkHeight / 2);
 
-            // Áp dụng watermark với opacity kiểu số
-            watermark(mainImage, watermarkImage, x, y, 0.1, watermarkWidth, watermarkHeight);
+            // Áp dụng watermark
+            watermark(mainImage, resizedWatermark, x, y, 0.1, watermarkWidth, watermarkHeight);
 
             // Lấy dữ liệu ảnh đã xử lý
             const processedImageBuffer = mainImage.get_bytes();
@@ -73,8 +85,9 @@ export default {
             // Giải phóng bộ nhớ
             mainImage.free();
             watermarkImage.free();
+            resizedWatermark.free();
 
-            // Chuẩn bị upload lên Cloudflare Images
+            // Upload lên Cloudflare Images
             const accountId = env.CLOUDFLARE_ACCOUNT_ID;
             const deliveryAccountId = env.CLOUDFLARE_DELIVERY_ACCOUNT_ID;
             const apiToken = env.CLOUDFLARE_API_TOKEN;
@@ -92,8 +105,8 @@ export default {
             });
 
             const imageResult = await imageResponse.json();
-            console.log('Image API Response:', imageResult);
             if (!imageResult.success) {
+                console.error('Image API Errors:', imageResult.errors);
                 throw new Error(`Upload thất bại: ${imageResult.errors[0].message}`);
             }
 
