@@ -10,7 +10,7 @@ bucket_name = "test-togihome"
 CLOUDFLARE_ACCOUNT_ID = "ff61175e8722c91197fb87c09f544f4c"
 CLOUDFLARE_DELIVERY_ACCOUNT_ID = "cl43DQDIxI86uPHddrYSaQ"
 CLOUDFLARE_API_TOKEN = "dsKr2OMijFhl3pVXTNpQFzWMtUikH4Tfew34b-xb"
-R2_ACCOUNT_ID = "c79802e0b589c59dfc480b8b687fda90"
+R2_ACCOUNT_ID = "ba1e0a4014ed4ccb84b2682ba234ad30"
 
 # wrangler.toml (wrangler v3.88.0^)
 [observability.logs]
