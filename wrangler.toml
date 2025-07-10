@@ -3,8 +3,8 @@ main = "worker.js"
 compatibility_date = "2025-07-10"
 
 [[r2_buckets]]
-binding = "WATERMARK_BUCKET"
-bucket_name = "test-togihome"
+binding = "test-togihome"
+bucket_name = "togihome-watermark-origin.png"
 
 [vars]
 CLOUDFLARE_ACCOUNT_ID = "ff61175e8722c91197fb87c09f544f4c"
