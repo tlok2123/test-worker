@@ -4,7 +4,7 @@ export default {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
+            'Access-Control-Allow-Headers': 'Content-Type',
         };
 
         if (request.method === 'OPTIONS') {
@@ -14,16 +14,17 @@ export default {
         if (request.method !== 'POST') {
             return new Response(JSON.stringify({ error: 'Phương thức không được hỗ trợ' }), {
                 status: 405,
-                headers
+                headers,
             });
         }
 
         try {
-            // Kiểm tra biến môi trường
+            // Lấy biến môi trường
             const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
             const deliveryAccountId = process.env.CLOUDFLARE_DELIVERY_ACCOUNT_ID;
             const apiToken = process.env.CLOUDFLARE_API_TOKEN;
 
+            // Kiểm tra biến môi trường
             if (!accountId || !deliveryAccountId || !apiToken) {
                 throw new Error('Một hoặc nhiều biến môi trường không được định nghĩa');
             }
@@ -39,7 +40,7 @@ export default {
             if (!image || !type) {
                 return new Response(JSON.stringify({ error: 'Thiếu file ảnh hoặc type' }), {
                     status: 400,
-                    headers
+                    headers,
                 });
             }
 
@@ -47,20 +48,20 @@ export default {
                 cloudflare: {
                     account_id: accountId,
                     delivery_account_id: deliveryAccountId,
-                    api_token: apiToken
+                    api_token: apiToken,
                 },
                 image_types: {
                     product: {
                         full_size: { width: 1920, height: 1080, fit: 'cover' },
-                        thumb_size: { width: 300, height: 300, fit: 'cover' }
-                    }
+                        thumb_size: { width: 300, height: 300, fit: 'cover' },
+                    },
                 },
                 watermark: {
                     url: 'https://test-togihome.c79802e0b589c59dfc480b8b687fda90.r2.cloudflarestorage.com/togihome-watermark-origin.png',
                     opacity: 0.5,
                     scale: 0.3,
-                    position: { x: 10, y: 10 }
-                }
+                    position: { x: 10, y: 10 },
+                },
             };
 
             // Tạo metadata cho watermark và resize
@@ -72,9 +73,9 @@ export default {
                         opacity: config.watermark.opacity,
                         width: Math.round(config.image_types[type].full_size.width * config.watermark.scale),
                         x: config.watermark.position.x,
-                        y: config.watermark.position.y
-                    }
-                ]
+                        y: config.watermark.position.y,
+                    },
+                ],
             };
 
             // Tải ảnh lên Cloudflare Images
@@ -86,19 +87,19 @@ export default {
                 type,
                 fullUrl,
                 thumbUrl,
-                imageId
+                imageId,
             }), {
                 status: 200,
-                headers
+                headers,
             });
         } catch (error) {
             console.error('Error:', error.message);
             return new Response(JSON.stringify({ error: error.message }), {
                 status: 500,
-                headers
+                headers,
             });
         }
-    }
+    },
 };
 
 async function uploadToCloudflareImages(image, config, metadata, type) {
@@ -111,7 +112,7 @@ async function uploadToCloudflareImages(image, config, metadata, type) {
     const response = await fetch(uploadUrl, {
         method: 'POST',
         headers: { Authorization: `Bearer ${config.cloudflare.api_token}` },
-        body: formData
+        body: formData,
     });
 
     const result = await response.json();
