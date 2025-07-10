@@ -1,5 +1,4 @@
 import { PhotonImage, watermark } from "@cf-wasm/photon";
-import photonWasm from "@cf-wasm/photon/photon.wasm";
 
 export default {
     async fetch(request, env) {
@@ -59,14 +58,14 @@ export default {
             const mainImage = new PhotonImage(new Uint8Array(imageBuffer));
             const watermarkImage = new PhotonImage(new Uint8Array(watermarkBuffer));
 
-            // Áp dụng watermark
-            watermark(mainImage, watermarkImage, {
-                opacity: 0.1,
-                width: 576,
-                height: 576,
-                x: Math.floor(mainImage.get_width() / 2 - 576 / 2), // Căn giữa theo x
-                y: Math.floor(mainImage.get_height() / 2 - 576 / 2), // Căn giữa theo y
-            });
+            // Đảm bảo các tham số là số nguyên
+            const watermarkWidth = 576;
+            const watermarkHeight = 576;
+            const x = Math.floor(mainImage.get_width() / 2 - watermarkWidth / 2);
+            const y = Math.floor(mainImage.get_height() / 2 - watermarkHeight / 2);
+
+            // Áp dụng watermark với opacity kiểu số
+            watermark(mainImage, watermarkImage, x, y, 0.1, watermarkWidth, watermarkHeight);
 
             // Lấy dữ liệu ảnh đã xử lý
             const processedImageBuffer = mainImage.get_bytes();
