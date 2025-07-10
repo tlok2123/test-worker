@@ -47,7 +47,7 @@ export default {
             if (!watermarkObject) {
                 throw new Error('Watermark togihome-watermark-origin.png không tìm thấy trong test-togihome bucket');
             }
-            const watermarkUrl = `https://pub-${env.R2_ACCOUNT_ID}.r2.dev/test-togihome/togihome-watermark-origin.png`;
+            const watermarkUrl = `https://pub-${env.R2_ACCOUNT_ID}.r2.dev/togihome-watermark-origin.png`;
             console.log('Watermark URL:', watermarkUrl); // Log để kiểm tra URL
 
             // Lấy thông tin từ biến môi trường
