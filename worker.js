@@ -1,4 +1,4 @@
-const WATERMARK_OPTIONS = "position=bottom%2Cright&opacity=0.7&scale=0.2"; // Watermark settings: bottom-right, 70% opacity, 20% scale
+const WATERMARK_OPTIONS = "position=bottom%2Cright&opacity=1&scale=1"; // Watermark settings: bottom-right, 70% opacity, 20% scale
 
 export default {
     async fetch(request, env) {
