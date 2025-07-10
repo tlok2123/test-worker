@@ -63,12 +63,13 @@ export default {
                 draw: [
                     {
                         url: watermarkUrl,
-                        opacity: 0.1, // Giữ độ mờ 0.1 như bạn thử
-                        width: 576, // Giữ kích thước 576px
-                        x: '50%', // Đặt ở giữa theo phần trăm
-                        y: '50%', // Đặt ở giữa theo phần trăm
-                        gravity: 'center', // Căn giữa watermark
-                    },
+                        opacity: 0.1,
+                        width: 576,
+                        height: 576, // Thêm height để khớp với docs
+                        gravity: 'center',
+                        x: '50%',
+                        y: '50%'
+                    }
                 ],
             }));
             uploadFormData.append('requireSignedURLs', 'false');
