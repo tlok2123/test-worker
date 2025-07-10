@@ -42,11 +42,11 @@ export default {
                 // Retrieve watermark URL from R2 bucket
                 let r2WatermarkUrl = null;
                 try {
-                    const watermarkObject = await env.test_togihome.get('togihome-watermark-origin.png');
+                    const watermarkObject = await env.test_togihome.get('anh5.png');
                     if (!watermarkObject) {
-                        throw new Error('Watermark togihome-watermark-origin.png not found in test-togihome R2 bucket');
+                        throw new Error('Watermark anh5.png not found in test-togihome R2 bucket');
                     }
-                    r2WatermarkUrl = `https://pub-${env.R2_ACCOUNT_ID}.r2.dev/togihome-watermark-origin.png`;
+                    r2WatermarkUrl = `https://pub-${env.R2_ACCOUNT_ID}.r2.dev/anh5.png`;
                     console.log('Watermark URL from R2:', r2WatermarkUrl);
                 } catch (r2Error) {
                     console.error('Error accessing R2 for watermark:', r2Error.message);
