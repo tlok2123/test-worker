@@ -1,144 +1,152 @@
-import { PhotonImage, watermark, resize } from "@cf-wasm/photon";
-import photonWasm from "@cf-wasm/photon/photon.wasm";
+const WATERMARK_OPTIONS = "position=bottom%2Cright&opacity=0.7&scale=0.2"; // Watermark settings: bottom-right, 70% opacity, 20% scale
 
 export default {
     async fetch(request, env) {
+        const url = new URL(request.url);
         const headers = {
-            'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type',
         };
 
-        // Xử lý yêu cầu OPTIONS
+        // Handle CORS Preflight (OPTIONS request)
         if (request.method === 'OPTIONS') {
             return new Response(null, { status: 204, headers });
         }
 
-        // Kiểm tra phương thức POST
-        if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: 'Chỉ hỗ trợ phương thức POST' }), {
-                status: 405,
-                headers: { ...headers, Allow: 'POST' },
-            });
+        // Handle image upload (POST request to '/upload-image')
+        if (request.method === 'POST' && url.pathname === '/upload-image') {
+            try {
+                headers['Content-Type'] = 'application/json';
+
+                // Validate environment variables
+                if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_DELIVERY_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) {
+                    throw new Error('Missing Cloudflare Images environment variables (ACCOUNT_ID, DELIVERY_ACCOUNT_ID, API_TOKEN)');
+                }
+                if (!env.test_togihome || !env.R2_ACCOUNT_ID) {
+                    throw new Error('Missing R2 environment variables (R2_ACCOUNT_ID or test_togihome binding)');
+                }
+
+                // Parse form data
+                const formData = await request.formData();
+                const imageFile = formData.get('image');
+                const type = formData.get('type');
+
+                if (!imageFile) {
+                    throw new Error('No image file found in form-data');
+                }
+                if (!type || type !== 'product') {
+                    throw new Error('Invalid or missing type field');
+                }
+
+                // Retrieve watermark URL from R2 bucket
+                let r2WatermarkUrl = null;
+                try {
+                    const watermarkObject = await env.test_togihome.get('togihome-watermark-origin.png');
+                    if (!watermarkObject) {
+                        throw new Error('Watermark togihome-watermark-origin.png not found in test-togihome R2 bucket');
+                    }
+                    r2WatermarkUrl = `https://pub-${env.R2_ACCOUNT_ID}.r2.dev/togihome-watermark-origin.png`;
+                    console.log('Watermark URL from R2:', r2WatermarkUrl);
+                } catch (r2Error) {
+                    console.error('Error accessing R2 for watermark:', r2Error.message);
+                    // Continue without watermark if R2 fails
+                }
+
+                // Prepare form data for Cloudflare Images API
+                const uploadFormData = new FormData();
+                uploadFormData.append('file', imageFile);
+                uploadFormData.append('metadata', JSON.stringify({ type }));
+                uploadFormData.append('requireSignedURLs', 'false');
+
+                // Upload image to Cloudflare Images
+                const imageUploadResponse = await fetch(
+                    `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/images/v1`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+                        },
+                        body: uploadFormData,
+                    }
+                );
+
+                const imageResult = await imageUploadResponse.json();
+                if (!imageResult.success) {
+                    throw new Error(`Upload failed: ${imageResult.errors[0]?.message || 'Unknown error'}`);
+                }
+
+                const imageId = imageResult.result.id;
+
+                // Generate watermarked URLs
+                const baseDeliveryUrl = `https://imagedelivery.net/${env.CLOUDFLARE_DELIVERY_ACCOUNT_ID}/${imageId}`;
+                let fullUrlWithWatermark = `${baseDeliveryUrl}/productfull`;
+                let thumbUrlWithWatermark = `${baseDeliveryUrl}/productthumb`;
+
+                if (r2WatermarkUrl) {
+                    const encodedWatermarkUrl = encodeURIComponent(r2WatermarkUrl);
+                    fullUrlWithWatermark = `${fullUrlWithWatermark}?watermark=${encodedWatermarkUrl}&watermark_options=${WATERMARK_OPTIONS}`;
+                    thumbUrlWithWatermark = `${thumbUrlWithWatermark}?watermark=${encodedWatermarkUrl}&watermark_options=${WATERMARK_OPTIONS}`;
+                } else {
+                    console.warn('Unable to generate watermarked URLs due to missing or invalid R2 watermark.');
+                }
+
+                // Return success response with image URLs
+                return new Response(
+                    JSON.stringify({
+                        message: 'Upload successful',
+                        fileName: imageFile.name,
+                        imageId,
+                        fullUrlWatermarked: fullUrlWithWatermark,
+                        thumbUrlWatermarked: thumbUrlWithWatermark,
+                    }),
+                    {
+                        status: 200,
+                        headers,
+                    }
+                );
+            } catch (error) {
+                console.error('Error uploading image:', error.message);
+                return new Response(JSON.stringify({ error: error.message }), {
+                    status: 500,
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                });
+            }
         }
 
-        try {
-            // Kiểm tra binding R2
-            if (!env.test_togihome) {
-                throw new Error('Binding test_togihome không được định nghĩa trong env');
+        // Handle watermarking for direct image requests (GET request to imagedelivery.net)
+        if (request.method === 'GET' && url.hostname === 'imagedelivery.net') {
+            const pathParts = url.pathname.split('/');
+
+            if (pathParts.length >= 3 && pathParts[1] === env.CLOUDFLARE_DELIVERY_ACCOUNT_ID) {
+                let r2WatermarkUrl;
+                try {
+                    const watermarkObject = await env.test_togihome.get('togihome-watermark-origin.png');
+                    if (!watermarkObject) {
+                        console.warn('Watermark file not found in R2 for GET request. Serving image without watermark.');
+                        return fetch(request);
+                    }
+                    r2WatermarkUrl = `https://pub-${env.R2_ACCOUNT_ID}.r2.dev/togihome-watermark-origin.png`;
+                } catch (r2Error) {
+                    console.error('Error accessing R2 for watermark (GET request):', r2Error.message);
+                    return fetch(request);
+                }
+
+                const baseUrl = `https://${url.hostname}/${pathParts[1]}/${pathParts[2]}`;
+                const variantPath = pathParts.length > 3 ? `/${pathParts.slice(3).join('/')}` : '';
+
+                // Avoid duplicate watermark parameters
+                if (!url.searchParams.has('watermark') && !url.searchParams.has('watermark_options')) {
+                    const encodedWatermarkUrl = encodeURIComponent(r2WatermarkUrl);
+                    const newImageUrl = `${baseUrl}${variantPath}?watermark=${encodedWatermarkUrl}&watermark_options=${WATERMARK_OPTIONS}`;
+                    console.log('Transformed Image Request URL with watermark (GET):', newImageUrl);
+                    const newRequest = new Request(newImageUrl, request);
+                    return fetch(newRequest);
+                }
             }
-
-            // Lấy dữ liệu từ form-data
-            const formData = await request.formData();
-            const imageFile = formData.get('image');
-            const type = formData.get('type');
-
-            // Kiểm tra tệp hình ảnh và loại
-            if (!imageFile) {
-                throw new Error('Không tìm thấy tệp hình ảnh trong form-data');
-            }
-            if (!['image/png', 'image/jpeg'].includes(imageFile.type)) {
-                throw new Error('Định dạng hình ảnh không được hỗ trợ');
-            }
-            if (!type || type !== 'product') {
-                throw new Error('Trường type không hợp lệ hoặc không được cung cấp');
-            }
-
-            // Lấy watermark từ R2
-            const watermarkObject = await env.test_togihome.get('togihome-watermark-origin.png');
-            if (!watermarkObject) {
-                throw new Error('Watermark togihome-watermark-origin.png không tìm thấy trong test-togihome bucket');
-            }
-
-            // Chuyển đổi ảnh và watermark sang ArrayBuffer
-            const imageBuffer = await imageFile.arrayBuffer();
-            const watermarkBuffer = await watermarkObject.arrayBuffer();
-
-            // Kiểm tra buffer hợp lệ
-            if (imageBuffer.byteLength === 0) {
-                throw new Error('Tệp hình ảnh rỗng hoặc không hợp lệ');
-            }
-            if (watermarkBuffer.byteLength === 0) {
-                throw new Error('Tệp watermark rỗng hoặc không hợp lệ');
-            }
-
-            // Tạo PhotonImage từ buffer
-            const mainImage = new PhotonImage(new Uint8Array(imageBuffer));
-            const watermarkImage = new PhotonImage(new Uint8Array(watermarkBuffer));
-
-            // Kiểm tra kích thước hình ảnh
-            const minImageSize = 100;
-            if (mainImage.get_width() < minImageSize || mainImage.get_height() < minImageSize) {
-                mainImage.free();
-                watermarkImage.free();
-                throw new Error(`Hình ảnh quá nhỏ (phải lớn hơn ${minImageSize}x${minImageSize}px)`);
-            }
-
-            // Điều chỉnh kích thước watermark
-            const minWatermarkSize = 10;
-            const watermarkWidth = Math.max(minWatermarkSize, Math.min(576, Math.floor(mainImage.get_width() * 0.5)));
-            const watermarkHeight = Math.max(minWatermarkSize, Math.min(576, Math.floor(mainImage.get_height() * 0.5)));
-            const resizedWatermark = resize(watermarkImage, watermarkWidth, watermarkHeight, 1); // Nearest neighbor
-
-            // Tính toán vị trí watermark
-            const x = Math.max(1, Math.floor(mainImage.get_width() / 2 - watermarkWidth / 2));
-            const y = Math.max(1, Math.floor(mainImage.get_height() / 2 - watermarkHeight / 2));
-
-            // Áp dụng watermark
-            watermark(mainImage, resizedWatermark, x, y, 0.1, watermarkWidth, watermarkHeight);
-
-            // Lấy dữ liệu ảnh đã xử lý
-            const processedImageBuffer = mainImage.get_bytes();
-
-            // Giải phóng bộ nhớ
-            mainImage.free();
-            watermarkImage.free();
-            resizedWatermark.free();
-
-            // Upload lên Cloudflare Images
-            const accountId = env.CLOUDFLARE_ACCOUNT_ID;
-            const deliveryAccountId = env.CLOUDFLARE_DELIVERY_ACCOUNT_ID;
-            const apiToken = env.CLOUDFLARE_API_TOKEN;
-
-            const uploadFormData = new FormData();
-            uploadFormData.append('file', new Blob([processedImageBuffer], { type: imageFile.type }));
-            uploadFormData.append('requireSignedURLs', 'false');
-
-            const imageResponse = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v1`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${apiToken}`,
-                },
-                body: uploadFormData,
-            });
-
-            const imageResult = await imageResponse.json();
-            if (!imageResult.success) {
-                console.error('Image API Errors:', imageResult.errors);
-                throw new Error(`Upload thất bại: ${imageResult.errors[0].message}`);
-            }
-
-            const imageId = imageResult.result.id;
-            const fullUrl = `https://imagedelivery.net/${deliveryAccountId}/${imageId}/productfull`;
-            const thumbUrl = `https://imagedelivery.net/${deliveryAccountId}/${imageId}/productthumb`;
-
-            return new Response(JSON.stringify({
-                message: 'Upload thành công',
-                fileName: imageFile.name,
-                fullUrl,
-                thumbUrl,
-                imageId,
-            }), {
-                status: 200,
-                headers,
-            });
-        } catch (error) {
-            console.error('Error:', error.message);
-            return new Response(JSON.stringify({ error: error.message }), {
-                status: 500,
-                headers,
-            });
         }
+
+        // Handle unmatched requests
+        return new Response('Endpoint Not Found or Unsupported Method', { status: 404 });
     },
 };
