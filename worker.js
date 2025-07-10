@@ -1,3 +1,5 @@
+import { PhotonImage, watermark } from "@cf-wasm/photon";
+
 export default {
     async fetch(request, env) {
         const headers = {
@@ -42,39 +44,45 @@ export default {
                 throw new Error('Trường type không hợp lệ hoặc không được cung cấp');
             }
 
-            // Lấy watermark từ R2 bucket
+            // Lấy watermark từ R2
             const watermarkObject = await env.test_togihome.get('togihome-watermark-origin.png');
             if (!watermarkObject) {
                 throw new Error('Watermark togihome-watermark-origin.png không tìm thấy trong test-togihome bucket');
             }
-            const watermarkUrl = `https://pub-${env.R2_ACCOUNT_ID}.r2.dev/togihome-watermark-origin.png`;
-            console.log('Watermark URL:', watermarkUrl); // Log để kiểm tra URL
 
-            // Lấy thông tin từ biến môi trường
-            const accountId = env.CLOUDFLARE_ACCOUNT_ID; // Tài khoản B cho Cloudflare Images
+            // Chuyển đổi ảnh và watermark sang ArrayBuffer
+            const imageBuffer = await imageFile.arrayBuffer();
+            const watermarkBuffer = await watermarkObject.arrayBuffer();
+
+            // Tạo PhotonImage từ buffer
+            const mainImage = new PhotonImage(new Uint8Array(imageBuffer));
+            const watermarkImage = new PhotonImage(new Uint8Array(watermarkBuffer));
+
+            // Áp dụng watermark
+            watermark(mainImage, watermarkImage, {
+                opacity: 0.1,
+                width: 576,
+                height: 576,
+                x: Math.floor(mainImage.get_width() / 2 - 576 / 2), // Căn giữa theo x
+                y: Math.floor(mainImage.get_height() / 2 - 576 / 2), // Căn giữa theo y
+            });
+
+            // Lấy dữ liệu ảnh đã xử lý
+            const processedImageBuffer = mainImage.get_bytes();
+
+            // Giải phóng bộ nhớ
+            mainImage.free();
+            watermarkImage.free();
+
+            // Chuẩn bị upload lên Cloudflare Images
+            const accountId = env.CLOUDFLARE_ACCOUNT_ID;
             const deliveryAccountId = env.CLOUDFLARE_DELIVERY_ACCOUNT_ID;
             const apiToken = env.CLOUDFLARE_API_TOKEN;
 
-            // Tạo FormData để gửi lên Cloudflare Images API
             const uploadFormData = new FormData();
-            uploadFormData.append('file', imageFile);
-            uploadFormData.append('metadata', JSON.stringify({
-                type: 'product',
-                draw: [
-                    {
-                        url: watermarkUrl,
-                        opacity: 0.1,
-                        width: 576,
-                        height: 576, // Thêm height để khớp với docs
-                        gravity: 'center',
-                        x: '50%',
-                        y: '50%'
-                    }
-                ],
-            }));
+            uploadFormData.append('file', new Blob([processedImageBuffer], { type: imageFile.type }));
             uploadFormData.append('requireSignedURLs', 'false');
 
-            // Gửi yêu cầu tới Cloudflare Images API
             const imageResponse = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v1`, {
                 method: 'POST',
                 headers: {
@@ -84,12 +92,11 @@ export default {
             });
 
             const imageResult = await imageResponse.json();
-            console.log('Image API Response:', imageResult); // Log phản hồi từ API
+            console.log('Image API Response:', imageResult);
             if (!imageResult.success) {
                 throw new Error(`Upload thất bại: ${imageResult.errors[0].message}`);
             }
 
-            // Tạo URL cho hình ảnh
             const imageId = imageResult.result.id;
             const fullUrl = `https://imagedelivery.net/${deliveryAccountId}/${imageId}/productfull`;
             const thumbUrl = `https://imagedelivery.net/${deliveryAccountId}/${imageId}/productthumb`;

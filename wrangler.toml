@@ -2,10 +2,16 @@ name = "square-frost-4a61"
 main = "worker.js"
 compatibility_date = "2025-07-10"
 
+# Bật Node.js compatibility để hỗ trợ các module như @cf-wasm/photon
+compatibility_flags = ["nodejs_compat"]
+
 [[r2_buckets]]
 binding = "test_togihome"
 bucket_name = "test-togihome"
 
+# Thêm cấu hình cho WASM module
+[wasm_modules]
+PHOTON = "node_modules/@cf-wasm/photon/photon.wasm"
 [vars]
 CLOUDFLARE_ACCOUNT_ID = "ff61175e8722c91197fb87c09f544f4c"
 CLOUDFLARE_DELIVERY_ACCOUNT_ID = "cl43DQDIxI86uPHddrYSaQ"
