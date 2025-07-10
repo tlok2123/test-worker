@@ -1,4 +1,3 @@
-
 export default {
     async fetch(request) {
         const headers = {
@@ -20,11 +19,24 @@ export default {
         }
 
         try {
+            // Kiểm tra biến môi trường
+            const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+            const deliveryAccountId = process.env.CLOUDFLARE_DELIVERY_ACCOUNT_ID;
+            const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+
+            if (!accountId || !deliveryAccountId || !apiToken) {
+                throw new Error('Một hoặc nhiều biến môi trường không được định nghĩa');
+            }
+
             const formData = await request.formData();
-            const file = formData.get('image');
+            const image = formData.get('image');
             const type = formData.get('type');
 
-            if (!file || !type) {
+            console.log('FormData keys:', [...formData.keys()]);
+            console.log('Image:', image ? image.name : 'No image');
+            console.log('Type:', type);
+
+            if (!image || !type) {
                 return new Response(JSON.stringify({ error: 'Thiếu file ảnh hoặc type' }), {
                     status: 400,
                     headers
@@ -33,9 +45,9 @@ export default {
 
             const config = {
                 cloudflare: {
-                    account_id: CLOUDFLARE_ACCOUNT_ID,
-                    delivery_account_id: CLOUDFLARE_DELIVERY_ACCOUNT_ID,
-                    api_token: CLOUDFLARE_API_TOKEN
+                    account_id: accountId,
+                    delivery_account_id: deliveryAccountId,
+                    api_token: apiToken
                 },
                 image_types: {
                     product: {
@@ -47,7 +59,7 @@ export default {
                     url: 'https://test-togihome.c79802e0b589c59dfc480b8b687fda90.r2.cloudflarestorage.com/togihome-watermark-origin.png',
                     opacity: 0.5,
                     scale: 0.3,
-                    position: { x: 10, y: 10 } // Cloudflare Images sử dụng x, y thay vì left, top
+                    position: { x: 10, y: 10 }
                 }
             };
 
@@ -66,11 +78,11 @@ export default {
             };
 
             // Tải ảnh lên Cloudflare Images
-            const { fullUrl, thumbUrl, imageId } = await uploadToCloudflareImages(file, config, metadata, type);
+            const { fullUrl, thumbUrl, imageId } = await uploadToCloudflareImages(image, config, metadata, type);
 
             return new Response(JSON.stringify({
                 message: 'Upload thành công',
-                fileName: file.name,
+                fileName: image.name,
                 type,
                 fullUrl,
                 thumbUrl,
@@ -80,6 +92,7 @@ export default {
                 headers
             });
         } catch (error) {
+            console.error('Error:', error.message);
             return new Response(JSON.stringify({ error: error.message }), {
                 status: 500,
                 headers
@@ -88,12 +101,11 @@ export default {
     }
 };
 
-async function uploadToCloudflareImages(file, config, metadata, type) {
+async function uploadToCloudflareImages(image, config, metadata, type) {
     const uploadUrl = `https://api.cloudflare.com/client/v4/accounts/${config.cloudflare.account_id}/images/v1`;
     const formData = new FormData();
-    formData.append('file', file); // Tải file gốc
+    formData.append('file', image);
     formData.append('metadata', JSON.stringify(metadata));
-    // Chỉ định các biến thể (variants) khi tải lên
     formData.append('variants', 'productfull,productthumb');
 
     const response = await fetch(uploadUrl, {
