@@ -24,6 +24,12 @@ export default {
         }
 
         try {
+            // Kiểm tra binding R2
+            if (!env.test_togihome) {
+                throw new Error('Binding test_togihome không được định nghĩa trong env');
+            }
+            console.log('R2 binding test_togihome:', env.test_togihome);
+
             // Lấy dữ liệu từ form-data
             const formData = await request.formData();
             const imageFile = formData.get('image');
@@ -39,12 +45,13 @@ export default {
             // Lấy watermark từ R2 bucket
             const watermarkObject = await env.test_togihome.get('togihome-watermark-origin.png');
             if (!watermarkObject) {
-                throw new Error('Watermark không tìm thấy trong test-togihome bucket');
+                throw new Error('Watermark togihome-watermark-origin.png không tìm thấy trong test-togihome bucket');
             }
             const watermarkUrl = `https://pub-${env.R2_ACCOUNT_ID}.r2.dev/test-togihome/togihome-watermark-origin.png`;
+            console.log('Watermark URL:', watermarkUrl); // Log để kiểm tra URL
 
             // Lấy thông tin từ biến môi trường
-            const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+            const accountId = env.CLOUDFLARE_ACCOUNT_ID; // Tài khoản B cho Cloudflare Images
             const deliveryAccountId = env.CLOUDFLARE_DELIVERY_ACCOUNT_ID;
             const apiToken = env.CLOUDFLARE_API_TOKEN;
 
@@ -56,10 +63,11 @@ export default {
                 draw: [
                     {
                         url: watermarkUrl,
-                        opacity: 0.1,
-                        width: 576, // 1920 * 0.3
-                        x: 10,
-                        y: 10,
+                        opacity: 0.1, // Giữ độ mờ 0.1 như bạn thử
+                        width: 576, // Giữ kích thước 576px
+                        x: '50%', // Đặt ở giữa theo phần trăm
+                        y: '50%', // Đặt ở giữa theo phần trăm
+                        gravity: 'center', // Căn giữa watermark
                     },
                 ],
             }));
@@ -75,6 +83,7 @@ export default {
             });
 
             const imageResult = await imageResponse.json();
+            console.log('Image API Response:', imageResult); // Log phản hồi từ API
             if (!imageResult.success) {
                 throw new Error(`Upload thất bại: ${imageResult.errors[0].message}`);
             }
