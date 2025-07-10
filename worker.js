@@ -41,7 +41,7 @@ export default {
             if (!watermarkObject) {
                 throw new Error('Watermark không tìm thấy trong test-togihome bucket');
             }
-            const watermarkUrl = `https://pub-${env.CLOUDFLARE_ACCOUNT_ID}.r2.dev/test-togihome/togihome-watermark-origin.png`;
+            const watermarkUrl = `https://pub-${env.R2_ACCOUNT_ID}.r2.dev/test-togihome/togihome-watermark-origin.png`;
 
             // Lấy thông tin từ biến môi trường
             const accountId = env.CLOUDFLARE_ACCOUNT_ID;
