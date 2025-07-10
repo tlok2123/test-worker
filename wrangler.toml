@@ -4,7 +4,7 @@ compatibility_date = "2025-07-10"
 
 [[r2_buckets]]
 binding = "test-togihome"
-bucket_name = "togihome-watermark-origin.png"
+bucket_name = "test-togihome"
 
 [vars]
 CLOUDFLARE_ACCOUNT_ID = "ff61175e8722c91197fb87c09f544f4c"
