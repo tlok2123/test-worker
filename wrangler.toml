@@ -3,7 +3,7 @@ main = "worker.js"
 compatibility_date = "2025-07-10"
 
 [[r2_buckets]]
-binding = "test-togihome"
+binding = "test_togihome"
 bucket_name = "test-togihome"
 
 [vars]
