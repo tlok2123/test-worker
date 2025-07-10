@@ -68,9 +68,9 @@ export default {
             const watermarkImage = new PhotonImage(new Uint8Array(watermarkBuffer));
 
             // Resize watermark
-            const watermarkWidth = 576;
-            const watermarkHeight = 576;
-            const resizedWatermark = resize(watermarkImage, watermarkWidth, watermarkHeight, 1); // Nearest neighbor
+            const watermarkWidth = Math.min(576, Math.floor(mainImage.get_width() * 0.5)); // 50% chiều rộng ảnh
+            const watermarkHeight = Math.min(576, Math.floor(mainImage.get_height() * 0.5)); // 50% chiều cao ảnh
+            const resizedWatermark = resize(watermarkImage, watermarkWidth, watermarkHeight, 1);
 
             // Tính toán vị trí watermark
             const x = Math.floor(mainImage.get_width() / 2 - watermarkWidth / 2);
