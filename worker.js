@@ -1,3 +1,4 @@
+
 export default {
     async fetch(request, env) {
         const headers = {
@@ -11,80 +12,65 @@ export default {
             return new Response(null, { status: 204, headers });
         }
 
-        if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: 'Phương thức không được hỗ trợ' }), {
+        if (request.method !== 'PUT') {
+            return new Response(JSON.stringify({ error: 'Chỉ hỗ trợ phương thức PUT' }), {
                 status: 405,
-                headers,
+                headers: {
+                    Allow: 'PUT',
+                },
             });
         }
 
         try {
-            // Lấy biến môi trường
-            const accountId = env.CLOUDFLARE_ACCOUNT_ID;
-            const deliveryAccountId = env.CLOUDFLARE_DELIVERY_ACCOUNT_ID;
-            const apiToken = env.CLOUDFLARE_API_TOKEN;
+            const url = new URL(request.url);
+            const key = url.pathname.slice(1);
 
-            // Kiểm tra biến môi trường
-            if (!accountId || !deliveryAccountId || !apiToken) {
-                throw new Error('Một hoặc nhiều biến môi trường không được định nghĩa');
+            const watermarkObject = await env.WATERMARK_BUCKET.get('watermark.png');
+            if (!watermarkObject) {
+                throw new Error('Watermark không tìm thấy trong WATERMARK_BUCKET');
             }
+            const watermarkUrl = `https://pub-${env.CLOUDFLARE_ACCOUNT_ID}.r2.dev/watermark-bucket/watermark.png`;
 
-            const formData = await request.formData();
-            const image = formData.get('image');
-            const type = formData.get('type');
+            const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+            const deliveryAccountId = process.env.CLOUDFLARE_DELIVERY_ACCOUNT_ID;
+            const apiToken = process.env.CLOUDFLARE_API_TOKEN;
 
-            console.log('FormData keys:', [...formData.keys()]);
-            console.log('Image:', image ? image.name : 'No image');
-            console.log('Type:', type);
-
-            if (!image || !type) {
-                return new Response(JSON.stringify({ error: 'Thiếu file ảnh hoặc type' }), {
-                    status: 400,
-                    headers,
-                });
-            }
-
-            const config = {
-                cloudflare: {
-                    account_id: accountId,
-                    delivery_account_id: deliveryAccountId,
-                    api_token: apiToken,
-                },
-                image_types: {
-                    product: {
-                        full_size: { width: 1920, height: 1080, fit: 'cover' },
-                        thumb_size: { width: 300, height: 300, fit: 'cover' },
-                    },
-                },
-                watermark: {
-                    url: 'https://test-togihome.c79802e0b589c59dfc480b8b687fda90.r2.cloudflarestorage.com/togihome-watermark-origin.png',
-                    opacity: 0.5,
-                    scale: 0.3,
-                    position: { x: 10, y: 10 },
-                },
-            };
-
-            // Tạo metadata cho watermark và resize
-            const metadata = {
-                type,
+            const uploadFormData = new FormData();
+            uploadFormData.append('file', request.body); // Sử dụng body từ PUT request
+            uploadFormData.append('metadata', JSON.stringify({
+                type: 'product',
                 draw: [
                     {
-                        url: config.watermark.url,
-                        opacity: config.watermark.opacity,
-                        width: Math.round(config.image_types[type].full_size.width * config.watermark.scale),
-                        x: config.watermark.position.x,
-                        y: config.watermark.position.y,
+                        url: watermarkUrl,
+                        opacity: 0.5,
+                        width: 576, // 1920 * 0.3
+                        x: 10,
+                        y: 10,
                     },
                 ],
-            };
+            }));
+            uploadFormData.append('requireSignedURLs', 'false');
 
-            // Tải ảnh lên Cloudflare Images
-            const { fullUrl, thumbUrl, imageId } = await uploadToCloudflareImages(image, config, metadata, type);
+            const imageResponse = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v1`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${apiToken}`,
+                },
+                body: uploadFormData,
+            });
+
+            const imageResult = await imageResponse.json();
+            if (!imageResult.success) {
+                throw new Error(`Upload thất bại: ${imageResult.errors[0].message}`);
+            }
+
+            const imageId = imageResult.result.id;
+            const fullUrl = `https://imagedelivery.net/${deliveryAccountId}/${imageId}/productfull`;
+            const thumbUrl = `https://imagedelivery.net/${deliveryAccountId}/${imageId}/productthumb`;
 
             return new Response(JSON.stringify({
                 message: 'Upload thành công',
-                fileName: image.name,
-                type,
+                fileName: key,
                 fullUrl,
                 thumbUrl,
                 imageId,
@@ -101,28 +87,3 @@ export default {
         }
     },
 };
-
-async function uploadToCloudflareImages(image, config, metadata, type) {
-    const uploadUrl = `https://api.cloudflare.com/client/v4/accounts/${config.cloudflare.account_id}/images/v1`;
-    const formData = new FormData();
-    formData.append('file', image);
-    formData.append('metadata', JSON.stringify(metadata));
-    formData.append('variants', 'productfull,productthumb');
-
-    const response = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${config.cloudflare.api_token}` },
-        body: formData,
-    });
-
-    const result = await response.json();
-    if (!result.success) {
-        throw new Error(`Upload thất bại: ${result.errors[0].message}`);
-    }
-
-    const imageId = result.result.id;
-    const fullUrl = `https://imagedelivery.net/${config.cloudflare.delivery_account_id}/${imageId}/productfull`;
-    const thumbUrl = `https://imagedelivery.net/${config.cloudflare.delivery_account_id}/${imageId}/productthumb`;
-
-    return { fullUrl, thumbUrl, imageId };
-}
