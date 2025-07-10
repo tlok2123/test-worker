@@ -12,11 +12,11 @@ export default {
             return new Response(null, { status: 204, headers });
         }
 
-        if (request.method !== 'PUT') {
-            return new Response(JSON.stringify({ error: 'Chỉ hỗ trợ phương thức PUT' }), {
+        if (request.method !== 'POST') {
+            return new Response(JSON.stringify({ error: 'Chỉ hỗ trợ phương thức POST' }), {
                 status: 405,
                 headers: {
-                    Allow: 'PUT',
+                    Allow: 'POST',
                 },
             });
         }
@@ -36,7 +36,7 @@ export default {
             const apiToken = process.env.CLOUDFLARE_API_TOKEN;
 
             const uploadFormData = new FormData();
-            uploadFormData.append('file', request.body); // Sử dụng body từ PUT request
+            uploadFormData.append('file', request.body);
             uploadFormData.append('metadata', JSON.stringify({
                 type: 'product',
                 draw: [
