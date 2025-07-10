@@ -67,14 +67,22 @@ export default {
             const mainImage = new PhotonImage(new Uint8Array(imageBuffer));
             const watermarkImage = new PhotonImage(new Uint8Array(watermarkBuffer));
 
-            // Resize watermark
-            const watermarkWidth = Math.min(576, Math.floor(mainImage.get_width() * 0.5)); // 50% chiều rộng ảnh
-            const watermarkHeight = Math.min(576, Math.floor(mainImage.get_height() * 0.5)); // 50% chiều cao ảnh
-            const resizedWatermark = resize(watermarkImage, watermarkWidth, watermarkHeight, 1);
+            // Điều chỉnh kích thước watermark
+            const watermarkWidth = Math.min(576, Math.floor(mainImage.get_width() * 0.5));
+            const watermarkHeight = Math.min(576, Math.floor(mainImage.get_height() * 0.5));
+            const resizedWatermark = resize(watermarkImage, watermarkWidth, watermarkHeight, 1); // Nearest neighbor
+
+            // Kiểm tra kích thước hình ảnh
+            if (mainImage.get_width() < watermarkWidth || mainImage.get_height() < watermarkHeight) {
+                mainImage.free();
+                watermarkImage.free();
+                resizedWatermark.free();
+                throw new Error('Hình ảnh quá nhỏ để áp dụng watermark');
+            }
 
             // Tính toán vị trí watermark
-            const x = Math.floor(mainImage.get_width() / 2 - watermarkWidth / 2);
-            const y = Math.floor(mainImage.get_height() / 2 - watermarkHeight / 2);
+            const x = Math.max(0, Math.floor(mainImage.get_width() / 2 - watermarkWidth / 2));
+            const y = Math.max(0, Math.floor(mainImage.get_height() / 2 - watermarkHeight / 2));
 
             // Áp dụng watermark
             watermark(mainImage, resizedWatermark, x, y, 0.1, watermarkWidth, watermarkHeight);
