@@ -1,5 +1,5 @@
 export default {
-    async fetch(request) {
+    async fetch(request, env) {
         const headers = {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
