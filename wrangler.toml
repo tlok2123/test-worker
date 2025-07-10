@@ -1,4 +1,4 @@
-name = "image-processor"
+name = "square-frost-4a61"
 main = "worker.js"
 compatibility_date = "2025-07-10"
 
@@ -6,3 +6,7 @@ compatibility_date = "2025-07-10"
 CLOUDFLARE_ACCOUNT_ID = "ff61175e8722c91197fb87c09f544f4c"
 CLOUDFLARE_DELIVERY_ACCOUNT_ID = "cl43DQDIxI86uPHddrYSaQ"
 CLOUDFLARE_API_TOKEN = "dsKr2OMijFhl3pVXTNpQFzWMtUikH4Tfew34b-xb"
+
+# Cấu hình tích hợp Git (nếu cần)
+[build]
+command = "npm install"
