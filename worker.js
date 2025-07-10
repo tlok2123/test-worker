@@ -20,9 +20,9 @@ export default {
 
         try {
             // Lấy biến môi trường
-            const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-            const deliveryAccountId = process.env.CLOUDFLARE_DELIVERY_ACCOUNT_ID;
-            const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+            const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+            const deliveryAccountId = env.CLOUDFLARE_DELIVERY_ACCOUNT_ID;
+            const apiToken = env.CLOUDFLARE_API_TOKEN;
 
             // Kiểm tra biến môi trường
             if (!accountId || !deliveryAccountId || !apiToken) {
