@@ -1,3 +1,5 @@
+import { gravity } from "sharp";
+
 export default {
     async fetch(request, env) {
         const headers = {
@@ -56,10 +58,11 @@ export default {
                 draw: [
                     {
                         url: watermarkUrl,
-                        opacity: 0.5,
+                        opacity: 0.1,
                         width: 576, // 1920 * 0.3
-                        x: 10,
-                        y: 10,
+                        x: '50%',
+                        y: '50%',
+                        gravity: 'center',
                     },
                 ],
             }));
